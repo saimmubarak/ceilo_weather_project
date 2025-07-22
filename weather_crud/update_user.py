@@ -18,8 +18,6 @@ def lambda_handler(event, context):
     user_id = body.get("id")
     name = body.get("name")
 
-
-
     # Build the expressions
     expression_attribute_values = {}
     expression_attribute_names = {}

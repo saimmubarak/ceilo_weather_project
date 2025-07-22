@@ -200,5 +200,15 @@ def put_image_in_s3(s3, bucket_name,s3_key, file_bytes, content_type):
     return 0
 
 
+def expiry_date():
+    # Get current time as epoch timestamp
+    current_epoch = float(time.time())
+
+    expire_date = current_epoch + 172800
+
+    expire_date = str(clean_decimals(expire_date))
+
+    return expire_date
+
 if __name__ == "__main__":
-    print(time_difference(None))
+    print(expiry_date())

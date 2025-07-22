@@ -1,12 +1,15 @@
 # get_weather Lambda
 import json
 from common import helper_functions as hf
+import time
 
 
 #An object created to refer to client and table name
 #Specifies dynamodb usage and the table used (table_name)
 #specifies client that is used for invoke (lambda)
 AwsInfo = hf.AwsResources("lambda", "weather", None)
+
+
 
 
 def lambda_handler(event, context):
@@ -26,6 +29,7 @@ def lambda_handler(event, context):
     # requires table_name(AwsInfo.table), key_dit (key)
     response = hf.read_from_db(AwsInfo.table, key)
 
+
     #initialize variables that will be used in the if statements
     resource = ""
     time_from_database = ""
@@ -35,19 +39,20 @@ def lambda_handler(event, context):
     expression_attribute_names = {}
     parts = []
     service_available = True
+    expiry_date = None
 
     #used in processing
     keys_to_exclude = {'postal_code', 'city'}
 
 
     if "Item" not in response:
-        # todo if your vc limit is over give user the data currenly available in db. DONE
         # Data was not found in the database
 
         # Receive weather data dict from visual_crossing and process it
         # Visual Crossing fetches weather data against the posta_code and city
         # The dict received will contain weather_data and some checks attacked to it.
         weather_data_dict = hf.get_and_handle_data_from_visual_crossing(postal_code, city)
+
 
         # Resource is a string that indicates the source of weather data
         resource = "Got Data From Visual Crossing"
@@ -71,6 +76,14 @@ def lambda_handler(event, context):
                     "body": service_available,
                     "Is_Location_valid": is_location_valid
                 }
+
+
+
+            # Adding an Expiry_date value to the table entry for time to live functionality
+            expiry_date = hf.expiry_date()
+            weather_data_dict["expire_at"] = expiry_date
+
+            print("weather_data_dict",type(weather_data_dict["datetime_val"]))
 
             # The database must be now updated with the new data received
             # All the preprocessing required before DataBase Update
@@ -152,6 +165,10 @@ def lambda_handler(event, context):
                     resource = "Got Data From Visual Crossing"
                     weather_data_dict = visual_crossing_item
 
+                    # Adding an Expiry_date value to the table entry for time to live functionality
+                    expiry_date = hf.expiry_date()
+                    weather_data_dict["expire_at"] = expiry_date
+
                     # The database must be now updated with the new data received
                     # All the preprocessing required before DataBase Update
                     # Very Important to send this function Dict of data we want to update(cleaned item), list of keys to exclude(basically keys of DB), Empty parts list
@@ -182,7 +199,7 @@ def lambda_handler(event, context):
 
 if __name__ == "__main__":
     test_event = {
-        "postal_code": "90010",
-        "city": "Los Angeles",
+        "postal_code": "74602",
+        "city": "Texas",
     }
     print(lambda_handler(test_event, None))

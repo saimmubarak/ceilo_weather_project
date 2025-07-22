@@ -1,19 +1,23 @@
-# "org" ensures this Service is used with the correct Serverless Framework Access Key.
 org: saimserverless
 service: serverless-crud
+frameworkVersion: '4'
+
 plugins:
   - serverless-offline
   - serverless-python-requirements
-
-frameworkVersion: '4'
 
 provider:
   name: aws
   runtime: python3.11
   region: eu-north-1
+
   environment:
-    TABLE_NAME: users
+    TABLE_NAME: users       #users table used
+    SNS_TOPIC_ARN:
+      Ref: WeatherAlertsTopic
+
   logRetentionInDays: 7
+
   iam:
     role:
       statements:
@@ -34,25 +38,13 @@ provider:
             - dynamodb:Query
           Resource:
             - arn:aws:dynamodb:${self:provider.region}:*:table/users
+            - arn:aws:dynamodb:${self:provider.region}:*:table/weather
 
-        - Effect: Allow
-          Action:
-                - dynamodb:PutItem
-                - dynamodb:GetItem
-                - dynamodb:UpdateItem
-                - dynamodb:DeleteItem
-                - dynamodb:Scan
-                - dynamodb:Query
-          Resource:
-                - arn:aws:dynamodb:${self:provider.region}:*:table/weather
-
-        # read_user can invoke get_weather
         - Effect: Allow
           Action:
             - lambda:InvokeFunction
           Resource:
-            - arn:aws:lambda:eu-north-1:*:function:${self:service}-${sls:stage}-getWeather
-
+            - arn:aws:lambda:${self:provider.region}:*:function:${self:service}-${sls:stage}-getWeather
 
         - Effect: Allow
           Action:
@@ -62,12 +54,13 @@ provider:
             - arn:aws:s3:::profilepicusers
             - arn:aws:s3:::profilepicusers/*
 
-
+        - Effect: Allow
+          Action:
+            - sns:Publish
+          Resource:
+            - Ref: WeatherAlertsTopic
 
 functions:
-
-
-
   createUser:
     handler: weather_crud/create_user.lambda_handler
     events:
@@ -96,29 +89,33 @@ functions:
           path: /delete
           method: delete
 
-#  openProfilePic:
-#    handler: open_profile_pic.lambda_handler
-#    events:
-#      - httpApi:
-#          path: /pic/get
-#          method: get
-
   getWeather:
     handler: weather_crud/get_weather.lambda_handler
     timeout: 10
 
-#  getExistingWeather:
-#    handler: get_existing_weather.lambda_handler
-#    timeout: 10
+
+
+  streamHandler:
+    handler: stream_triggers/stream_handler.lambda_handler
+    events:
+      - stream:
+          type: dynamodb
+          arn: arn:aws:dynamodb:eu-north-1:392894084273:table/weather/stream/2025-07-18T11:41:02.530
+
 
 resources:
   Resources:
-    UserTable:
+    WeatherAlertsTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: weather-alerts
+
+
+    # Enabling backup for weather table
+    # Enable Point In Time Recovery
+    UpdateWeatherTableBackup:
       Type: AWS::DynamoDB::Table
-      properties:
+      Properties:
         TableName: weather
-        AttributeDefinitions:
-            - AttributeName: postal_code
-              AttributeType: S
-        KeySchema:
-          - Attri
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true

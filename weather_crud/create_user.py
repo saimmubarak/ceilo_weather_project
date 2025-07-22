@@ -113,6 +113,8 @@ def lambda_handler(event, context):
 
     # adding id, postal_code, city into data
     #item = body.copy()
+
+
     item["id"] = user_id
     item["postal_code"] = postal_code
     item["city"] = city
@@ -137,8 +139,8 @@ if __name__ == "__main__":
             "Content-Type": "application/json"
         },
         "body": json.dumps({
-            "name": "Rijhu",
-            "email": "Rijhu@example.com",
+            "name": "Adnan",
+            "email": "Adnan@example.com",
             "location": "90020,Los Angeles"
         })
     }

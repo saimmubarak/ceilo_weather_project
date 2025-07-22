@@ -18,19 +18,23 @@ def get_weather_data_from_visual_crossing(postal_code, city):
     url2 = (
         f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/{location1}/{date1}?unitGroup=us&key={API_Key2}&contentType=json"
     )
-    response = requests.get(url)
 
     data = {}
     apiresponse = ""
     is_location_valid = True
+
+    response = requests.get(url)
+
     #todo update this condition for cases where out status code is something other that 200. If it is other that 200 then print the message (I think DONE)
     limit_reached = False
     if response.status_code == 200:
         data = response.json()
+        print("first url worked")
     elif response.status_code == 429:
         print("Request limit reached and alternative account will be used  ")
+        response = requests.get(url2)
         if response.status_code == 200:
-            response = requests.get(url2)
+            data = response.json()
         elif response.status_code == 429:
             limit_reached = True
         else:
@@ -41,10 +45,14 @@ def get_weather_data_from_visual_crossing(postal_code, city):
         print(f"Error {response.status_code}: {response.text}")
 
 
+    print(data)
+
+
 
     #condition when location invalid
-    if apiresponse == 400:
+    if response.status_code != 200:
         print("Invalid Location")
+        is_location_valid = False
 
     current = data.get("currentConditions", {})
     #learning .get() will automatically set the variable that is being get to None if it does not exist inside the dict used.
@@ -72,4 +80,4 @@ def get_weather_data_from_visual_crossing(postal_code, city):
     return filtered
 
 if __name__ == "__main__":
-    print(get_weather_data_from_visual_crossing('07003', 'New York'))
+    print(get_weather_data_from_visual_crossing('85001', 'Phoenix Arizona'))

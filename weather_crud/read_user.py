@@ -117,12 +117,14 @@ def lambda_handler(event, context):
         # If we have an imageURL we place it inside combined dictionary
         if image_url:
             combined = {
+                "resource": resource,
                 "user": item,
                 "weather": selected_weather,
                 "profile_pic": image_url
             }
         else:
             combined = {
+                "resource": resource,
                 "user": item,
                 "weather": selected_weather
             }
@@ -159,8 +161,8 @@ if __name__ == "__main__":
 
     event = {
         "queryStringParameters": {
-            "id": "c115df72-2fe5-44fc-add8-175c97ddaca3",
-            "name": "ayaan"
+            "id": "ad53d09f-ff31-407f-bfe2-1dcd0671c4de",
+            "name": "Taimoor"
         }
     }
 
