@@ -210,5 +210,24 @@ def expiry_date():
 
     return expire_date
 
+def complete_processing_and_db_update(weather_data_dict, service_available, resource, keys_to_exclude, parts, expression_attribute_names,
+        expression_attribute_values,key,dynamodb_table_name):
+
+    # Adding an Expiry_date value to the table entry for time to live functionality
+    expirydate = expiry_date()
+    weather_data_dict["expire_at"] = expirydate
+
+    # The database must be now updated with the new data received
+    # All the preprocessing required before DataBase Update
+    # Very Important to send this function Dict of data we want to update(cleaned item), list of keys to exclude(basically keys of DB), Empty parts list
+    update_expr, expression_attribute_names, expression_attribute_values = preprocessing_before_update(
+        weather_data_dict, keys_to_exclude, parts, expression_attribute_names,
+        expression_attribute_values)
+
+    # requires table_name(AwsInfo.table), key_dit (key)
+    update_db(dynamodb_table_name, key, update_expr, expression_attribute_names,
+                 expression_attribute_values)
+
+
 if __name__ == "__main__":
     print(expiry_date())

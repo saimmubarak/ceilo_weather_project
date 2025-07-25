@@ -29,9 +29,9 @@ def get_weather_data_from_visual_crossing(postal_code, city):
     limit_reached = False
     if response.status_code == 200:
         data = response.json()
-        print("first url worked")
+        #print("first url worked")
     elif response.status_code == 429:
-        print("Request limit reached and alternative account will be used  ")
+        #print("Request limit reached and alternative account will be used  ")
         response = requests.get(url2)
         if response.status_code == 200:
             data = response.json()
@@ -45,7 +45,7 @@ def get_weather_data_from_visual_crossing(postal_code, city):
         print(f"Error {response.status_code}: {response.text}")
 
 
-    print(data)
+    #print(data)
 
 
 
@@ -80,4 +80,4 @@ def get_weather_data_from_visual_crossing(postal_code, city):
     return filtered
 
 if __name__ == "__main__":
-    print(get_weather_data_from_visual_crossing('85001', 'Phoenix Arizona'))
+    print(get_weather_data_from_visual_crossing('90267', 'California'))

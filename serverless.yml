@@ -16,6 +16,14 @@ provider:
     SNS_TOPIC_ARN:
       Ref: WeatherAlertsTopic
 
+    SQS_URL:
+      Ref: GetWeatherQueue
+
+    RECEIVE_QUEUE_URL:
+      Ref: ProcessedWeatherQueue
+
+
+
   logRetentionInDays: 7
 
   iam:
@@ -27,6 +35,13 @@ provider:
             - logs:CreateLogStream
             - logs:PutLogEvents
           Resource: arn:aws:logs:*:*:*
+
+        - Effect: Allow
+          Action:
+            - sqs:SendMessage
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+          Resource: "*"
 
         - Effect: Allow
           Action:
@@ -46,6 +61,13 @@ provider:
           Resource:
             - arn:aws:lambda:${self:provider.region}:*:function:${self:service}-${sls:stage}-getWeather
 
+        #invoke get_weather_data_queue
+        - Effect: Allow
+          Action:
+            - lambda:InvokeFunction
+          Resource:
+            - arn:aws:lambda:${self:provider.region}:*:function:${self:service}-${sls:stage}-weatherQueue
+
         - Effect: Allow
           Action:
             - s3:PutObject
@@ -61,6 +83,8 @@ provider:
             - Ref: WeatherAlertsTopic
 
 functions:
+
+
   createUser:
     handler: weather_crud/create_user.lambda_handler
     events:
@@ -91,8 +115,13 @@ functions:
 
   getWeather:
     handler: weather_crud/get_weather.lambda_handler
-    timeout: 10
-
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - GetWeatherQueue
+              - Arn
+          batchSize: 10
 
 
   streamHandler:
@@ -102,7 +131,6 @@ functions:
           type: dynamodb
           arn: arn:aws:dynamodb:eu-north-1:392894084273:table/weather/stream/2025-07-18T11:41:02.530
 
-
 resources:
   Resources:
     WeatherAlertsTopic:
@@ -110,12 +138,26 @@ resources:
       Properties:
         TopicName: weather-alerts
 
-
-    # Enabling backup for weather table
-    # Enable Point In Time Recovery
-    UpdateWeatherTableBackup:
-      Type: AWS::DynamoDB::Table
+    GetWeatherQueue:
+      Type: AWS::SQS::Queue
       Properties:
-        TableName: weather
-        PointInTimeRecoverySpecification:
-          PointInTimeRecoveryEnabled: true
+        QueueName: get-weather-queue.fifo
+        FifoQueue: true
+        ContentBasedDeduplication: true
+
+    ProcessedWeatherQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: processed-weather-queue.fifo
+        FifoQueue: true
+        ContentBasedDeduplication: true
+
+
+#    # Enabling backup for weather table
+#    # Enable Point In Time Recovery
+#    UpdateWeatherTableBackup:
+#      Type: AWS::DynamoDB::Table
+#      Properties:
+#        TableName: weather
+#        PointInTimeRecoverySpecification:
+#          PointInTimeRecoveryEnabled: true
