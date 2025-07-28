@@ -4,6 +4,7 @@ from common import helper_functions as hf
 import time
 import boto3
 import os
+import uuid
 
 sqs = boto3.client('sqs')
 
@@ -24,9 +25,12 @@ def lambda_handler(event, context):
         body = json.loads(record["body"])
         postal_code = body["postal_code"]
         city = body["city"]
+        request_id = body["request_id"]
 
         # postal_code = event["postal_code"]
         # city = event["city"]
+        # request_id = event["request_id"]
+
 
 
         # Get item from DynamoDB
@@ -199,6 +203,7 @@ def lambda_handler(event, context):
         humidity_val = weather_data_dict.get("humidity_val")
         windspeed_val= weather_data_dict.get("windspeed_val")
         pressure_val= weather_data_dict.get("pressure_val")
+        print("pressure_val*************",pressure_val)
 
         # Making a combined dict for data to be sent back to read_user
         processed_result ={
@@ -210,7 +215,8 @@ def lambda_handler(event, context):
             "pressure_val": pressure_val,
             "is_location_valid": is_location_valid,
             "service_available": service_available,
-            "resource": resource
+            "resource": resource,
+            "difference": request_id
         }
 
         # Creating MessageGroupId for asynchronous parallel queues
@@ -219,7 +225,14 @@ def lambda_handler(event, context):
         result=sqs.send_message(
             QueueUrl=send_back_queue_url,
             MessageBody=json.dumps(processed_result),
-            MessageGroupId=location
+            MessageGroupId=location,
+            MessageDeduplicationId = request_id,
+            MessageAttributes={
+                "RequestId": {
+                    "StringValue": request_id,
+                    "DataType": "String"
+                }
+            }
         )
         if result.get("ResponseMetadata", {}).get("HTTPStatusCode") == 200 and "MessageId" in result:
             print("Message successfully sent to SQS :)")
@@ -239,8 +252,9 @@ if __name__ == "__main__":
         "Records": [
             {
                 "body": json.dumps({
-                    "postal_code": "90258",
-                    "city": "California"
+                    "postal_code": "53031",
+                    "city": "Wisconsin",
+                    "request_id": str(uuid.uuid4())
                 })
             }
         ]

@@ -77,7 +77,13 @@ def get_weather_data_from_visual_crossing(postal_code, city):
         "pressure_val": str(current.get("pressure")),
     }
 
+    # This means that the location exists but visual crossing has no data for that location.
+    if str(current.get("datetimeEpoch")) == 'None':
+        filtered["visual_crossing_limit_reached"] = True
+
+
+
     return filtered
 
 if __name__ == "__main__":
-    print(get_weather_data_from_visual_crossing('90267', 'California'))
+    print(get_weather_data_from_visual_crossing('53031', 'Wisconsin'))

@@ -121,7 +121,7 @@ functions:
             Fn::GetAtt:
               - GetWeatherQueue
               - Arn
-          batchSize: 10
+          #batchSize: 10
 
 
   streamHandler:

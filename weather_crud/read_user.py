@@ -1,4 +1,6 @@
 import json
+import uuid
+
 from common import helper_functions as hf
 import boto3
 import os
@@ -72,12 +74,15 @@ def lambda_handler(event, context):
     # Creating MessageGroupId for asynchronous parallel queues
     location = f"{postal_code}-{city}".replace(" ", "-")
 
+    request_id = str(uuid.uuid4())
+
     # Send message to get_weather through a queue
     weatherdata=sqs.send_message(
         QueueUrl=queue_url,
         MessageBody=json.dumps({
             "postal_code": postal_code,
-            "city": city
+            "city": city,
+            "request_id": request_id
         }),
         MessageGroupId=location
     )
@@ -86,126 +91,180 @@ def lambda_handler(event, context):
     messages = sqs.receive_message(
         QueueUrl=receive_queue_url,
         MaxNumberOfMessages=10,
-        #WaitTimeSeconds=5
+        WaitTimeSeconds=4,
+        MessageAttributeNames=["All"]
     )
-
-    print("messages", messages)
-
+    queue_success = False
     # Processing data received from queue
     combined = {}
+    print("Messages->",messages)
     if "Messages" in messages: # Data received through queue
-
-        print("Raw SQS messages:", messages)
+        sqs_worked = True
+        from_db = False
         for message in messages["Messages"]:
 
-            # Used of deleting repeating data
-            receipt_handle = message["ReceiptHandle"]
+            attrs = message.get("MessageAttributes", {})
+            msg_request_id = attrs.get("RequestId", {}).get("StringValue")
 
-            # Extract weather data received from queue
-            weather_dict = json.loads(message["Body"])
+            print("request_id:", request_id)
+            print("msg_request_id",msg_request_id)
+            if msg_request_id == request_id:
+                print("Message received from SQS")
+                # Used of deleting repeating data
+                receipt_handle = message["ReceiptHandle"]
 
-            # Extract booleans used in checks from received data
-            service_available = weather_dict.get("service_available")
-            resource = weather_dict.get("resource")
-            is_location_valid = weather_dict.get("is_location_valid")
+                # Extract weather data received from queue
+                weather_dict = json.loads(message["Body"])
 
-            if not service_available:  # No weatherdata found database or visualcrossing
-                if image_url:
-                    combined = {
-                        "user": item,
-                        "profile_pic": image_url,
-                        "weather": "Our weather services are not currently available"
-                    }
-                else:
-                    combined = {
-                        "user": item,
-                        "weather": "Our weather services are not currently available"
-                    }
-            elif service_available:  # Weather data from either database or visualcrossing
-                if is_location_valid:  # Entered location exists
-                    # Attributes that we want to return read request with names changed eg temp not temp_val
-                    selected_weather = {
-                        "temp": weather_dict.get("temp_val"),
-                        "feelsLike": weather_dict.get("feelsLike_val"),
-                        "conditions": weather_dict.get("conditions"),
-                        "humidity": weather_dict.get("humidity_val"),
-                        "windspeed": weather_dict.get("windspeed_val"),
-                        "pressure": weather_dict.get("pressure_val"),
-                    }
-
-                    if image_url:
-                        combined = {
-                            "user": item,
-                            "profile_pic": image_url,
-                            "weather": selected_weather,
-                            "resource": resource
-                        }
-                    else:
-                        combined = {
-                            "user": item,
-                            "weather": selected_weather,
-                            "resource": resource
-                        }
-
-                else:  # Entered location does not exist
-                    if image_url:
-                        combined = {
-                            "user": item,
-                            "profile_pic": image_url,
-                            "Location": "Users Location is invalid"
-                        }
-                    else:
-                        combined = {
-                            "user": item,
-                            "Location": "Users Location is invalid"
-                        }
-
-            print("Received message body:", message["Body"])
-            print("Parsed weather_dict:", weather_dict)
-            print("Service Available:", service_available)
-            print("Is Location Valid:", is_location_valid)
-            print("Image URL:", image_url)
-            print("Combined before deletion:", combined)
-
-            if "user" in combined:
-                # Delete message from queue
+                # if "Body" in weather_dict:
+                #     # Delete message from queue
                 sqs.delete_message(
                     QueueUrl=receive_queue_url,
                     ReceiptHandle=receipt_handle
                 )
-
-            sqs_worked=True
+                queue_success = True
 
     else: # No data received through queue
-        sqs_worked = False
-        print("Nothing received from SQS")
+        queue_success = False
 
-    if sqs_worked:
+    if queue_success:
+        # Extract booleans used in checks from received data
+        service_available = weather_dict.get("service_available")
+        resource = weather_dict.get("resource")
+        is_location_valid = weather_dict.get("is_location_valid")
+
+        if not service_available:  # No weatherdata found database or visualcrossing
+            if image_url:
+                combined = {
+                    "user": item,
+                    "profile_pic": image_url,
+                    "weather": "Our weather services are not currently available",
+                    "Queue Status": "Queue Successful :)"
+                }
+            else:
+                combined = {
+                    "user": item,
+                    "weather": "Our weather services are not currently available",
+                    "Queue Status": "Queue Successful :)"
+                }
+        elif service_available:  # Weather data from either database or visualcrossing
+            if is_location_valid:  # Entered location exists
+                # Attributes that we want to return read request with names changed eg temp not temp_val
+                selected_weather = {
+                    "temp": weather_dict.get("temp_val"),
+                    "feelsLike": weather_dict.get("feelsLike_val"),
+                    "conditions": weather_dict.get("conditions"),
+                    "humidity": weather_dict.get("humidity_val"),
+                    "windspeed": weather_dict.get("windspeed_val"),
+                    "pressure": weather_dict.get("pressure_val"),
+                }
+
+                if image_url:
+                    combined = {
+                        "user": item,
+                        "profile_pic": image_url,
+                        "weather": selected_weather,
+                        "resource": resource,
+                        "Queue Status": "Queue Successful :)"
+                    }
+                else:
+                    combined = {
+                        "user": item,
+                        "weather": selected_weather,
+                        "resource": resource,
+                        "Queue Status": "Queue Successful :)"
+                    }
+
+            else:  # Entered location does not exist
+                if image_url:
+                    combined = {
+                        "user": item,
+                        "profile_pic": image_url,
+                        "Location": "Users Location is invalid",
+                        "Queue Status": "Queue Successful :)"
+                    }
+                else:
+                    combined = {
+                        "user": item,
+                        "Location": "Users Location is invalid",
+                        "Queue Status": "Queue Successful :)"
+                    }
+    else:
+        print("Queue Failed :( get data from db")
+        # Get weather from DynamoDB
+        # specify the partition and sort keys of Database and their values
+        key = {
+            "postal_code": postal_code,
+            "city": city
+        }
+        # requires table_name(AwsInfo.table), key_dit (key)
+        response = hf.read_from_db(AWSTables.table, key)
+
+        if "Item" in response:
+            from_db = True
+            # Extracts user data from data received from db
+            weather_dict = response.get("Item")
+
+            # Attributes that we want to return read request with names changed eg temp not temp_val
+            selected_weather = {
+                "temp": weather_dict.get("temp_val"),
+                "feelsLike": weather_dict.get("feelsLike_val"),
+                "conditions": weather_dict.get("conditions"),
+                "humidity": weather_dict.get("humidity_val"),
+                "windspeed": weather_dict.get("windspeed_val"),
+                "pressure": weather_dict.get("pressure_val"),
+            }
+
+            if image_url:
+                combined = {
+                    "user": item,
+                    "profile_pic": image_url,
+                    "weather": selected_weather,
+                    "resource": "Data From DynamoDB",
+                    "Queue Status": "Queue Failed :( get data from db"
+                }
+            else:
+                combined = {
+                    "user": item,
+                    "weather": selected_weather,
+                    "resource": "Data From DynamoDB",
+                    "Queue Status": "Queue Failed :( get data from db"
+
+                }
+        else:
+            from_db = False
+            if image_url:
+                combined = {
+                    "user": item,
+                    "profile_pic": image_url,
+                    "weather": "Our weather services are not currently available"
+                }
+            else:
+                combined = {
+                    "user": item,
+                    "weather": "Our weather services are not currently available"
+                }
+
+
+    if queue_success:
         return {
             "statusCode": 200,
-            "body": json.dumps(combined)
+            "body": json.dumps(combined),
+            "Message": "yeeesss :)"
         }
     else:
         return {
             "statusCode": 200,
-            "body": "Sorry :("
+            "body": json.dumps(combined),
+            "Message": "sorry :("
         }
-
-    # # Get weather from DynamoDB
-    # # specify the partition and sort keys of Database and their values
-    # key = {
-    #     "postal_code": postal_code,
-    #     "city": city
-    # }
-    # # requires table_name(AwsInfo.table), key_dit (key)
-    # response = hf.read_from_db(AWSTables.table, key)
 
 if __name__ == "__main__":
 
     event = {
         "queryStringParameters": {
-            "id": "6f761c29-6ae7-4613-a8c9-a4ad5f985b12",
-            "name": "Owais"
+            "id": "1cc12261-d76f-404e-856e-bac85329a3aa",
+            "name": "bilal"
         }
     }
 
