@@ -83,7 +83,12 @@ provider:
             - Ref: WeatherAlertsTopic
 
 functions:
-
+  getForecast:
+    handler: weather_forecast/request_weather_forecast.lamda_handler
+    events:
+      - httpApi:
+          path: /request_forecast
+          method : post
 
   createUser:
     handler: weather_crud/create_user.lambda_handler

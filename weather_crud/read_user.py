@@ -90,11 +90,12 @@ def lambda_handler(event, context):
     # Receive message from get_weather through a queue
     messages = sqs.receive_message(
         QueueUrl=receive_queue_url,
-        MaxNumberOfMessages=10,
-        WaitTimeSeconds=4,
+        MaxNumberOfMessages=10, # A list will only contain a maximum of 10 messages. Anything other than that will remain in queue
+        WaitTimeSeconds=4, # wait for messages
         MessageAttributeNames=["All"]
     )
     queue_success = False
+    weather_dict = ""
     # Processing data received from queue
     combined = {}
     print("Messages->",messages)
@@ -106,8 +107,7 @@ def lambda_handler(event, context):
             attrs = message.get("MessageAttributes", {})
             msg_request_id = attrs.get("RequestId", {}).get("StringValue")
 
-            print("request_id:", request_id)
-            print("msg_request_id",msg_request_id)
+            # Only processes messages that belong to the same request_id sent to get_weather
             if msg_request_id == request_id:
                 print("Message received from SQS")
                 # Used of deleting repeating data
@@ -116,18 +116,21 @@ def lambda_handler(event, context):
                 # Extract weather data received from queue
                 weather_dict = json.loads(message["Body"])
 
-                # if "Body" in weather_dict:
-                #     # Delete message from queue
+
+                # Delete message from queue
                 sqs.delete_message(
                     QueueUrl=receive_queue_url,
                     ReceiptHandle=receipt_handle
                 )
+                # Queue success boolean set to true to ensure weather data is from Queue
                 queue_success = True
 
     else: # No data received through queue
+        # Queue success boolean set to False indicating that the Queue has failed
         queue_success = False
 
-    if queue_success:
+
+    if queue_success: # If queue was successful then deal with the data received accordingly
         # Extract booleans used in checks from received data
         service_available = weather_dict.get("service_available")
         resource = weather_dict.get("resource")
@@ -189,7 +192,7 @@ def lambda_handler(event, context):
                         "Location": "Users Location is invalid",
                         "Queue Status": "Queue Successful :)"
                     }
-    else:
+    else: # If queue fails you get data from dynamodb if available
         print("Queue Failed :( get data from db")
         # Get weather from DynamoDB
         # specify the partition and sort keys of Database and their values
@@ -246,6 +249,7 @@ def lambda_handler(event, context):
                 }
 
 
+    # Return statement indicating if queue was successful
     if queue_success:
         return {
             "statusCode": 200,
