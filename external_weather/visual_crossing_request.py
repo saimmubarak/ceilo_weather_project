@@ -45,10 +45,6 @@ def get_weather_data_from_visual_crossing(postal_code, city):
         print(f"Error {response.status_code}: {response.text}")
 
 
-    #print(data)
-
-
-
     #condition when location invalid
     if response.status_code != 200:
         print("Invalid Location")
